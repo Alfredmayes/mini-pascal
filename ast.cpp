@@ -780,7 +780,12 @@ void CharExpr::generateCode(CodeContext &context){
 }
 
 void BoolExpr::generateCode(CodeContext &context){
-    
+    stringstream code;
+    string temp = getIntTemp();
+    code<<"li "<<temp<<", "<< this->value<<endl;
+    context.code = code.str();
+    context.place = temp;
+    context.type = new ComplexType((PrimitiveType)BOOLEAN, false);
 }
 
 void UnaryExpr::generateCode(CodeContext &context){
@@ -931,9 +936,37 @@ GEN_ARIT_CODE_BINARY_EXPR(Sub, '-');
 GEN_ARIT_CODE_BINARY_EXPR(Add, '+');
 GEN_CODE_BINARY_EXPR(Eq);
 GEN_CODE_BINARY_EXPR(Neq);
-GEN_CODE_BINARY_EXPR(Gt);
+
 GEN_CODE_BINARY_EXPR(Gte);
 GEN_CODE_BINARY_EXPR(Lte);
+
+void GtExpr::generateCode(CodeContext &context){
+    CodeContext leftCode, rightCode;
+    stringstream code;
+    this->left->generateCode(leftCode);
+    this->right->generateCode(rightCode);
+    if (leftCode.type->primitiveType == INTEGER && rightCode.type->primitiveType == INTEGER)
+    {
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"sgt "<<temp<<", "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }else{
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"c.gt.s "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }
+    context.code= code.str();   
+}
 
 void LtExpr::generateCode(CodeContext &context){
     CodeContext leftCode, rightCode;
@@ -1161,7 +1194,46 @@ string WhileStatement::generateCode(){
 }
 
 string ForStatement::generateCode(){
-    return "";
+    stringstream code;
+    
+    
+    string forLabel = newLabel("for");
+    string endFor = newLabel("endFor");
+
+    string temp = getIntTemp();
+    string temp2= getIntTemp();
+
+    CodeContext exprCodeFrom;
+    CodeContext exprCodeTo;
+
+    this->fromExpr->generateCode(exprCodeFrom);
+    this->toExpr->generateCode(exprCodeTo);
+    
+    releaseRegister(exprCodeFrom.place);
+    releaseRegister(exprCodeTo.place);
+
+    code<< forLabel<<": "<<endl  << exprCodeFrom.code << endl
+        <<"li "<< temp  << ", "<< exprCodeFrom.place<<endl
+        <<"slti "<< temp2 << ": "<< temp << exprCodeTo.place<<endl;
+    
+    code<<this->stmt->generateCode()<<endl
+    <<"j "<<forLabel<<endl
+    <<endFor<<": "<<endl;
+    
+
+//for a := 10  to 20 do
+
+   // //if (exprCode.type->primitiveType == INTEGER)
+   // {
+   //     code<<"beqz "<<exprCode.place<<", "<<endFor<<endl;
+   // }else{
+   //     code<<"bc1f "<<endFor<<endl;
+    //}
+   //code<<this->stmt->generateCode()<<endl
+    //<<"j "<<forLabel<<endl
+    //<<endFor<<": "<<endl;
+    
+    return code.str();
 }
 
 string MainStatement::generateCode(){
@@ -1286,9 +1358,36 @@ string ProcedureDeclarationStatement::generateCode(){
     finalCode.insert(this->id.size() + 2, stackPointerCode.str());
     return finalCode;
 }
-
-string FunctionDeclarationStatement::generateCode(){
-    return "";
+//debe gardar el valor en $v0
+string FunctionDeclarationStatement::generateCode(){ 
+     int stackPointer = 4;
+    globalStackPointer = 0;
+    stringstream code;
+    code<< this->id<<": "<<endl;
+    string state = saveState();
+    code<<state<<endl;
+    if (this->varDeclaration->ids->size() > 0)
+    {
+        list<string>::iterator paramsIt = this->varDeclaration->ids->begin();
+        for (int i = 0; i < this->varDeclaration->ids->size(); i++)
+        {
+            code<<"sw $a"<<i<<", "<<stackPointer<<"($sp)"<<endl;
+            codeGenerationVars[(*paramsIt)] = new CodeGenerationVarInfo(true, this->varDeclaration->type, stackPointer);
+            stackPointer += 4;
+            globalStackPointer +=4;
+            paramsIt++;
+        }
+    }
+    code<<this->statement->generateCode()<<endl;
+    stringstream stackPointerCode;
+    stackPointerCode<<endl<<"addiu $sp, $sp, -"<<globalStackPointer<<endl;
+    code<<retrieveState(state)<<endl
+    <<"addiu $sp, $sp, "<<globalStackPointer<<endl
+    <<"jr $ra"<<endl;
+    //codeGenerationVars.clear();
+    string finalCode = code.str();
+    finalCode.insert(this->id.size() + 2, stackPointerCode.str());
+    return finalCode;
 }
 
 string BlockStatement::generateCode(){

@@ -1,0 +1,29 @@
+program forLoop;
+var
+   a: integer;
+
+begin
+   for a := 10  to 20 do
+   
+   begin
+      writeln('value of a: ', a);
+   end;
+end.
+
+
+program whileLoop;
+var
+   a: integer;
+   b: real;
+
+begin
+   a := 10;
+   while  a < 20  do
+   
+   begin
+      writeln('value of a: ', a);
+      b:= a + 5.5;
+      writeln('value of b: ', b);
+      a := a + 1;
+   end;
+end.
