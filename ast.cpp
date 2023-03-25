@@ -4,7 +4,7 @@
 #include <map>
 #include <set>
 #include "asm.h"
-
+#include <algorithm>
 extern asmcode assemblyResult;
 
 using namespace std;
@@ -1358,7 +1358,7 @@ string ProcedureDeclarationStatement::generateCode(){
     finalCode.insert(this->id.size() + 2, stackPointerCode.str());
     return finalCode;
 }
-//debe gardar el valor en $v0
+//debe guardar el valor en $v0
 string FunctionDeclarationStatement::generateCode(){ 
      int stackPointer = 4;
     globalStackPointer = 0;
