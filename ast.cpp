@@ -5,11 +5,23 @@
 #include <set>
 #include "asm.h"
 #include <algorithm>
+
+#include <string>
 extern asmcode assemblyResult;
 
 using namespace std;
 
 int globalStackPointer = 0;
+
+
+
+template <typename T>
+std::string to_string(T value)
+{
+    std::ostringstream os;
+    os << value;
+    return os.str();
+}
 
 class CodeGenerationVarInfo{
     public:
@@ -789,7 +801,10 @@ void BoolExpr::generateCode(CodeContext &context){
 }
 
 void UnaryExpr::generateCode(CodeContext &context){
-    
+    stringstream code;
+    string temp1 = getIntTemp();
+    string temp2 = getIntTemp();
+
 }
 
 void MethodInvocationExpr::generateCode(CodeContext &context){
@@ -934,11 +949,10 @@ GEN_ARIT_CODE_BINARY_EXPR(Mult, '*');
 GEN_CODE_BINARY_EXPR(Or);
 GEN_ARIT_CODE_BINARY_EXPR(Sub, '-');
 GEN_ARIT_CODE_BINARY_EXPR(Add, '+');
-GEN_CODE_BINARY_EXPR(Eq);
-GEN_CODE_BINARY_EXPR(Neq);
-
-GEN_CODE_BINARY_EXPR(Gte);
-GEN_CODE_BINARY_EXPR(Lte);
+//GEN_CODE_BINARY_EXPR(Eq);
+//GEN_CODE_BINARY_EXPR(Neq);
+//GEN_CODE_BINARY_EXPR(Gte);
+//GEN_CODE_BINARY_EXPR(Lte);
 
 void GtExpr::generateCode(CodeContext &context){
     CodeContext leftCode, rightCode;
@@ -991,6 +1005,118 @@ void LtExpr::generateCode(CodeContext &context){
         releaseRegister(rightCode.place);
         string temp = getIntTemp();
         code<<"c.lt.s "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }
+    context.code= code.str();
+}
+
+void GteExpr::generateCode(CodeContext &context){
+    CodeContext leftCode, rightCode;
+    stringstream code;
+    this->left->generateCode(leftCode);
+    this->right->generateCode(rightCode);
+    if (leftCode.type->primitiveType == INTEGER && rightCode.type->primitiveType == INTEGER)
+    {
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"sge "<<temp<<", "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }else{
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"c.ge.s "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }
+    context.code= code.str();
+}
+
+void LteExpr::generateCode(CodeContext &context){
+    CodeContext leftCode, rightCode;
+    stringstream code;
+    this->left->generateCode(leftCode);
+    this->right->generateCode(rightCode);
+    if (leftCode.type->primitiveType == INTEGER && rightCode.type->primitiveType == INTEGER)
+    {
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"sle "<<temp<<", "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }else{
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"c.le.s "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }
+    context.code= code.str();
+}
+
+void EqExpr::generateCode(CodeContext &context){
+    CodeContext leftCode, rightCode;
+    stringstream code;
+    this->left->generateCode(leftCode);
+    this->right->generateCode(rightCode);
+    if (leftCode.type->primitiveType == INTEGER && rightCode.type->primitiveType == INTEGER)
+    {
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"seq "<<temp<<", "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }else{
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"c.eq.s "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }
+    context.code= code.str();
+}
+
+void NeqExpr::generateCode(CodeContext &context){
+    CodeContext leftCode, rightCode;
+    stringstream code;
+    this->left->generateCode(leftCode);
+    this->right->generateCode(rightCode);
+    if (leftCode.type->primitiveType == INTEGER && rightCode.type->primitiveType == INTEGER)
+    {
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"sne "<<temp<<", "<<leftCode.place<<", "<<rightCode.place<<endl;
+        context.place = temp;
+    }else{
+        context.type = leftCode.type;
+        code<<leftCode.code<<endl
+        <<rightCode.code<<endl;
+        releaseRegister(leftCode.place);
+        releaseRegister(rightCode.place);
+        string temp = getIntTemp();
+        code<<"c.ne.s "<<leftCode.place<<", "<<rightCode.place<<endl;
         context.place = temp;
     }
     context.code= code.str();
@@ -1307,6 +1433,23 @@ string VarDeclarationStatement::generateCode(){
 }
 
 string ConstDeclarationStatement::generateCode(){
+    string idIt = this->id;
+     codeGenerationVars[(*idIt)] = new CodeGenerationVarInfo(false, this->type, globalStackPointer);
+        if (!this->type->isArray)
+        {
+            globalStackPointer+=4;
+        }else{
+            ArrayType * arrayType = ((ArrayType *)this->type);
+            int size = 0;
+            if (arrayType->start > 1)
+            {
+                size = arrayType->end - arrayType->start;
+            }else{
+                size = arrayType->end;
+            }
+            globalStackPointer += size * 4;
+        }
+     
     return "";
 }
 
