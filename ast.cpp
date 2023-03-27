@@ -1434,7 +1434,7 @@ string VarDeclarationStatement::generateCode(){
 
 string ConstDeclarationStatement::generateCode(){
     string idIt = this->id;
-     codeGenerationVars[(*idIt)] = new CodeGenerationVarInfo(false, this->type, globalStackPointer);
+     //codeGenerationVars[(*idIt)] = new CodeGenerationVarInfo(false, this->type, globalStackPointer);
         if (!this->type->isArray)
         {
             globalStackPointer+=4;
